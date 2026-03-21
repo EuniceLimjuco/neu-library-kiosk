@@ -354,7 +354,7 @@ async function handleAdminGoogleOAuth() {
       console.error("Failed to clear Supabase session before admin Google login:", error);
     }
 
-    const redirectUrl = new URL(window.location.origin + window.location.pathname);
+    const redirectUrl = new URL(`${window.location.origin}/index.html`);
     redirectUrl.searchParams.set("admin_google", "1");
 
     const { error } = await supabase.auth.signInWithOAuth({
