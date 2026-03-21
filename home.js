@@ -321,12 +321,10 @@ async function handleGoogleSignIn() {
   try {
     await resetForStudentCheckIn();
 
-    const redirectTo = `${window.location.origin}${window.location.pathname}`;
-
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo,
+        redirectTo: "https://neu-library-system.netlify.app/welcome.html",
         queryParams: {
           prompt: "select_account"
         },
