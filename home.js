@@ -54,6 +54,7 @@ const collegeDepartmentSelect = document.getElementById("collegeDepartmentSelect
 const collegeDepartmentError = document.getElementById("collegeDepartmentError");
 
 const ADMIN_SESSION_KEY = "currentAdminSession";
+const LIVE_SITE_ORIGIN = "https://neu-library-system.netlify.app";
 
 function updateLiveTime() {
   const now = new Date();
@@ -324,7 +325,7 @@ async function handleGoogleSignIn() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: "https://neu-library-system.netlify.app/welcome.html",
+        redirectTo: `${LIVE_SITE_ORIGIN}/index.html`,
         queryParams: {
           prompt: "select_account"
         },
@@ -352,7 +353,7 @@ async function handleAdminGoogleOAuth() {
       console.error("Failed to clear Supabase session before admin Google login:", error);
     }
 
-    const redirectUrl = new URL(`${window.location.origin}/index.html`);
+    const redirectUrl = new URL(`${LIVE_SITE_ORIGIN}/index.html`);
     redirectUrl.searchParams.set("admin_google", "1");
 
     const { error } = await supabase.auth.signInWithOAuth({
