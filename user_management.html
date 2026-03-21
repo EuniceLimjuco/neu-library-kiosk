@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NEU Library Admin - User Management</title>
+
+  <link
+    href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet"
+  />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&display=swap"
+    rel="stylesheet"
+  />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+    rel="stylesheet"
+  />
+
+  <link rel="stylesheet" href="user_management.css" />
+</head>
+
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-top">
+        <div class="brand">
+          <div class="brand-icon">
+            <span class="material-symbols-outlined">library_books</span>
+          </div>
+          <div>
+            <h1 class="brand-title">NEU Library</h1>
+            <p class="brand-subtitle">Admin Portal</p>
+          </div>
+        </div>
+
+        <nav>
+          <p class="nav-label">Management</p>
+
+          <div class="nav-list">
+            <a class="nav-link" href="admindb.html">
+              <span class="material-symbols-outlined">dashboard</span>
+              <span class="nav-link-text">Dashboard</span>
+            </a>
+
+            <a class="nav-link active" href="user_management.html">
+              <span class="material-symbols-outlined">group</span>
+              <span class="nav-link-text">User Management</span>
+            </a>
+
+            <a class="nav-link" href="block_list.html">
+              <span class="material-symbols-outlined">block</span>
+              <span class="nav-link-text">Block List</span>
+            </a>
+          </div>
+        </nav>
+      </div>
+
+      <div class="sidebar-footer">
+        <button id="logoutBtn" class="logout-btn" title="Logout">
+          <div class="avatar-wrap">
+            <img
+              alt="Admin profile avatar placeholder"
+              src="https://lh3.googleusercontent.com/aida-public/AB6AXuBfGdiakufZ_uKllN0mAOj_eVTGyUy75p0YhL1yPo-dalEp1SadcSqd9zA-g8lVdmEWp6AWJg2ka51V-MuYhsVeyManx9MQL8Ka92hVR69oHbyfFTJFIzkKcvitC47m83K3CN1Zj2ViCQqInDzzzzihQn9EeFVBi_NHtW4Htm6UlGHLugu09F9hfxMS1NmaEi597rwTpKnQ8QNq3I4YcxmyzwTcmoGKE4TIM8ZEqfuO7LNKnnVCc52FG3yg3ga_zNFsLdryw4pefVM"
+            />
+          </div>
+
+          <div class="profile-info">
+            <p class="profile-name">Santos, Juan A.</p>
+            <p class="profile-role">Senior Librarian</p>
+          </div>
+
+          <span class="material-symbols-outlined logout-icon">logout</span>
+        </button>
+      </div>
+    </aside>
+
+    <main class="main-content custom-scrollbar">
+      <header class="topbar">
+        <div>
+          <h2 class="topbar-title">User Management</h2>
+          <p class="topbar-subtitle">
+            Review overall library activity and manage user access permissions.
+          </p>
+        </div>
+      </header>
+
+      <div class="content-wrap">
+        <div class="card activity-card">
+          <div class="activity-header">
+            <h3 class="section-title">Overall Activity Log</h3>
+
+            <div class="filters-row">
+              <div class="search-wrap">
+                <span class="material-symbols-outlined search-icon">search</span>
+                <input
+                  id="searchInput"
+                  class="field search-input"
+                  placeholder="Search..."
+                  type="text"
+                />
+              </div>
+
+              <select id="collegeFilter" class="select-field college-field">
+                <option value="">College / Department</option>
+                <option value="CICS">CICS</option>
+                <option value="CEA">CEA</option>
+                <option value="CAS">CAS</option>
+                <option value="CBA">CBA</option>
+                <option value="COED">COED</option>
+                <option value="Graduate School">Graduate School</option>
+                <option value="Senior High School">Senior High School</option>
+                <option value="Junior High School">Junior High School</option>
+                <option value="Elementary">Elementary</option>
+              </select>
+
+              <select id="roleFilter" class="select-field role-field">
+                <option value="">Role</option>
+                <option value="Student">Student</option>
+                <option value="Employee">Employee</option>
+              </select>
+
+              <select id="purposeFilter" class="select-field purpose-field">
+                <option value="">Purpose</option>
+                <option value="Research">Research</option>
+                <option value="Borrowing">Borrowing</option>
+                <option value="Studying">Studying</option>
+                <option value="Meeting">Meeting</option>
+                <option value="Reading">Reading</option>
+                <option value="Event">Event</option>
+                <option value="Admin Login">Admin Login</option>
+              </select>
+
+              <select id="statusFilter" class="select-field status-field">
+                <option value="">Status</option>
+                <option value="Checked In">Checked In</option>
+                <option value="Checked Out">Checked Out</option>
+              </select>
+
+              <input id="dateFilter" type="date" class="field date-field" />
+              <input id="timeFilter" type="time" class="field time-field" />
+
+              <button id="clearFiltersBtn" class="filter-btn" type="button">Clear Filters</button>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table class="activity-table">
+              <thead>
+                <tr>
+                  <th>User Name</th>
+                  <th>ID Number</th>
+                  <th>College / Department</th>
+                  <th>Role</th>
+                  <th>Purpose</th>
+                  <th>Check-in Time</th>
+                  <th>Status</th>
+                  <th class="actions-cell">Actions</th>
+                </tr>
+              </thead>
+
+              <tbody id="activityTableBody"></tbody>
+            </table>
+          </div>
+
+          <div class="activity-footer">
+            <p id="resultsText" class="results-text">
+              Showing 0 of 0 logs • Page 1 of 1
+            </p>
+
+            <div class="pagination">
+              <button id="prevPageBtn" class="page-btn" type="button">Previous</button>
+              <button id="pageIndicator" class="page-indicator" type="button">1</button>
+              <button id="nextPageBtn" class="page-btn" type="button">Next</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Block Reason Modal -->
+  <div id="blockReasonModal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title">Block User</h3>
+          <p class="modal-subtitle">Select a reason for blocking this user.</p>
+        </div>
+        <button id="closeBlockModalBtn" class="modal-close-btn" type="button" aria-label="Close">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <p id="blockModalUserName" class="modal-user-name">User</p>
+
+        <label for="blockReasonSelect" class="modal-label">Reason for blocking</label>
+        <select id="blockReasonSelect" class="modal-select">
+          <option value="">Select a reason</option>
+          <option value="Behavioral Violations">Behavioral Violations</option>
+          <option value="Misuse of Technology">Misuse of Technology</option>
+          <option value="Physical &amp; Safety Issues">Physical &amp; Safety Issues</option>
+          <option value="Administrative Delinquency">Administrative Delinquency</option>
+        </select>
+      </div>
+
+      <div class="modal-footer">
+        <button id="cancelBlockBtn" class="modal-btn modal-btn-secondary" type="button">Cancel</button>
+        <button id="confirmBlockBtn" class="modal-btn modal-btn-danger" type="button">Confirm Block</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="user_management.js"></script>
+</body>
+</html>

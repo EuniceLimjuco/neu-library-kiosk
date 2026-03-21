@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Check-in Successful - New Era University Library</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700" rel="stylesheet"/>
+
+  <link rel="stylesheet" href="welcome.css"/>
+</head>
+<body>
+  <div class="page-shell">
+
+    <!-- Header -->
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-icon">
+          <span class="material-symbols-outlined fill-icon icon-xl">account_balance</span>
+        </div>
+
+        <div class="brand-text">
+          <h2 class="brand-title">New Era University Library</h2>
+          <span class="brand-subtitle">Self-Service Kiosk</span>
+        </div>
+      </div>
+
+      <div class="topbar-right">
+        <nav class="top-nav">
+          <a href="#" class="help-link">Help</a>
+        </nav>
+
+        <div class="divider"></div>
+
+        <div class="topbar-actions">
+          <span id="time-display" class="live-time">--:--</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main -->
+    <main class="welcome-main">
+      <div class="background-layer">
+        <div class="background-image"></div>
+        <div class="background-overlay"></div>
+      </div>
+
+      <div class="success-card">
+        <div class="success-card-inner">
+          <div class="success-header">
+            <div class="success-icon-wrap">
+              <span class="material-symbols-outlined success-icon">check_circle</span>
+            </div>
+
+            <span class="success-label">Success</span>
+
+            <h2 class="success-title">Check-in Successful</h2>
+
+            <p class="success-subtitle">Welcome back to the library!</p>
+          </div>
+
+          <div class="info-grid">
+            <div class="info-item">
+              <div class="info-icon-box">
+                <span class="material-symbols-outlined info-icon">school</span>
+              </div>
+              <div class="info-content">
+                <p class="info-label">College / Department</p>
+                <p id="college-display" class="info-value">Not provided</p>
+              </div>
+            </div>
+
+            <div class="info-item">
+              <div class="info-icon-box">
+                <span class="material-symbols-outlined info-icon">schedule</span>
+              </div>
+              <div class="info-content">
+                <p class="info-label">Check-in Time</p>
+                <p id="checkin-display" class="info-value">--</p>
+              </div>
+            </div>
+
+            <div class="info-item">
+              <div class="info-icon-box">
+                <span class="material-symbols-outlined info-icon">assignment</span>
+              </div>
+              <div class="info-content">
+                <p class="info-label">Purpose</p>
+                <p id="purpose-display" class="info-value">Not provided</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="actions">
+            <button id="doneButton" class="done-btn" type="button">
+              <span>Done</span>
+              <span class="material-symbols-outlined btn-icon">arrow_forward</span>
+            </button>
+
+            <div class="hint">
+              <span class="hint-dot"></span>
+              <p>Click Done to return to the home screen.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="site-footer">
+    <div class="footer-inner">
+        <div class="footer-left">
+        <p class="footer-text">© 2026 New Era University Library System</p>
+        </div>
+
+        <div class="footer-status">
+        <span class="material-symbols-outlined icon-base">wifi</span>
+        <span class="footer-status-text">Network Status: Online</span>
+        </div>
+    </div>
+    </footer>
+
+  </div>
+
+  <script src="welcome.js"></script>
+</body>
+</html>

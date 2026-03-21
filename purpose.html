@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+  <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@100..900&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="purpose.css" />
+  <title>Library Portal - Purpose of Visit</title>
+</head>
+<body>
+  <div class="layout-container">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-icon">
+          <span class="material-symbols-outlined fill-icon icon-xl">account_balance</span>
+        </div>
+        <div class="brand-text">
+          <h2 class="brand-title">New Era University Library</h2>
+          <span class="brand-subtitle">Self-Service Kiosk</span>
+        </div>
+      </div>
+
+      <div class="topbar-right">
+        <nav class="top-nav">
+          <button id="helpBtn" class="text-btn" type="button">
+            <span class="material-symbols-outlined icon-lg">help</span>
+            Help
+          </button>
+        </nav>
+
+        <div class="divider"></div>
+
+        <div class="topbar-actions">
+          <span class="live-time" id="time-display">--:--</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="purpose-main">
+      <div class="background-layer">
+        <div
+          class="background-image"
+          style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuB_bwOi0pWuE93_BLqnIxUYCAZX5-OXVORPygqnkcu5Db9PRQvK3I5kILsi7E60gO3Ya4mCG3IfiBVhl7mgyclILZkzp5dJLNRCIRRcZjODKNV88wjxF_JUOVLVA6IL5Oh6TERbogV2QOYlq1NksP57BayhRchNj3ItpSOmuxA8Dv3SdecWXr4q_XwPK1n6wZxgrNTBSHnspK3h7ZrEC0JmfhQUAXilPEtTHp61Jvll6Q-g73u-vPW0WfqlqEWbPYDp7FT2K0AfO_k");'
+        ></div>
+        <div class="background-overlay"></div>
+      </div>
+
+      <div class="purpose-content">
+        <div class="page-heading">
+          <h1 class="page-title">What is the purpose of your visit?</h1>
+          <p class="page-description">
+            Select the primary reason for visiting the library today to help us guide you better.
+          </p>
+        </div>
+
+        <div class="purpose-grid">
+          <button type="button" data-purpose="Reading" class="purpose-card">
+            <div
+              class="purpose-image"
+              data-alt="Quiet reading area with comfortable chairs and books"
+              style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBSqYN-G6FBDOjdidIimObggCfvHMs_grFtPcqwfHXhHmiAzQK_LvWRi1JOGNlRd1Mi24Ya0OxcgTW2CRhCLPZPUVJHsoVcO0fACWx64YVgIWcIEuXrk7DT2V7SteXEI3JEyRvotjlWA_10U7xFjZO6rbDFjwrJOkjgAoJZTJi-i7N7iWMR9VwYMfLWSxeQ1JWJVTVHe5P_MAQeWYFXSy6k9YTaVDBiG2ngFvhXuW9uUiV6hwSoV9_X1lixx-HeCjamcAMJ1LKiaMg");'
+            ></div>
+            <div>
+              <p class="purpose-title">Reading</p>
+              <p class="purpose-text">Dedicated quiet zones for deep reading time</p>
+            </div>
+          </button>
+
+          <button type="button" data-purpose="Research" class="purpose-card">
+            <div
+              class="purpose-image"
+              data-alt="Old archives and library shelves for research"
+              style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCea1hcWYPaOHVWzPTggPxCabt-91grmHkc6OnThL9yzFwUmkyMW8OcEgPDYzIBX4FB-PatAfYuYIL8Wp5ClNROX-hJnhh2EQX3dsqQQjTlZ3_0mlduxQ_VFsKGaRAG6hsMBMw1sYyQe7RWB0ZmSLcYPOon7NWGAiQg9vfvHFo1x2JW___ktdbiu3fHYekx-FLsYsjSZZKUihYWoHiZfmDLZoNxaSqRjDShKusxIuXfuCK_8H20sE5_jxiH_7-dDE4wuZXv3iqgf1Y");'
+            ></div>
+            <div>
+              <p class="purpose-title">Research</p>
+              <p class="purpose-text">Accessing archives, journals, and databases</p>
+            </div>
+          </button>
+
+          <button type="button" data-purpose="Studying" class="purpose-card">
+            <div
+              class="purpose-image"
+              data-alt="Desk with laptop and books for focused study"
+              style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAeO2tyNJwWaoXVm_hSUNsVRxLCHJp49HWBlLOJ_1LRmmErx0E55hslVF6CAHEZzRFem7NRmrFTjIz9RXBk6-1_k3BsRbegZ2X30FdeGtaW6wyOKuUDzZ-uNZ6kZmR-jJc3IcMoqhj_qZQlMP5yC__SLnvqC4E9ypPs776ohZkd3NwB_WwPGttyzf1fcJiJcVNc1npuCMCxnmPPN_BIxEbeJhwmFba2xCSTGEKJqb_EFVlU3GIJXlcyxEgZyRo8RJbiJeAoDo-sr1A");'
+            ></div>
+            <div>
+              <p class="purpose-title">Studying</p>
+              <p class="purpose-text">Individual study carrels for academic focus</p>
+            </div>
+          </button>
+
+          <button type="button" data-purpose="Meeting" class="purpose-card">
+            <div
+              class="purpose-image"
+              data-alt="People collaborating in a library meeting room"
+              style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAc96Ja5WA572WUao8VFRV8QwPxFS5adg8djixvFJNAdE2lw_FpsFQEAQ8-KJWKbXlUFcsB_YcZxxqkmzD5HJJUAcrANa7R_-DTqBHM7Z9AfK7424UpZLZHhJgAuWgOWO89mSegW3iyf5z5UpMBVtZyATCBRH-NAxUuSTTblZNrhMLlzJzHwGJv1IuL6ymDLLfJjyJymTlTpvOoTntbXemNYRD4OplJRBB-GKPRkj6dmEOdMFgcG4wdfoXgn7qrQPw58KPPedepBG4");'
+            ></div>
+            <div>
+              <p class="purpose-title">Meeting</p>
+              <p class="purpose-text">Bookable rooms for group discussions</p>
+            </div>
+          </button>
+
+          <button type="button" data-purpose="Event" class="purpose-card">
+            <div
+              class="purpose-image"
+              data-alt="Classroom setting for a library workshop"
+              style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCZc40vry4G-XCSz5bCfN8H2VllTRS0LVmmOaCGZaK3gtEaX4od3kxxUbwP9C4q4hsko25PGPnUJiDfl8DhARLiwi33azp_0CZ-hB5Xtmp9ciWIMPe0j8YRksRzrHMk32dnQY07Ye0v3LlB0lwA98LW6o5F7Q8Zq4BBzRXOI4zRc-94PNg8_hoH0Uuv1LWDYcoQjWiI9KOxRwryqM5fQuo7PSFigFqe-Pfg8AEIR7mxgicQdpkfECI_w0OjHs3YuO_e3q14H_rkyFw");'
+            ></div>
+            <div>
+              <p class="purpose-title">Event</p>
+              <p class="purpose-text">Attending a scheduled workshop or guest talk</p>
+            </div>
+          </button>
+
+          <button type="button" data-purpose="Borrowing" class="purpose-card">
+            <div
+              class="purpose-image"
+              data-alt="Library book return and checkout counter"
+              style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDAQgmajYU4YvEne0JyiVzHGsaAl1syA3KR3Uy54of2w3vS5wG0r7QTYw7i9xtGRw2M0aXmkviQFXJ3CFma0L4kbkUVM2Vcpb8AaQDkygZgs9NQaWThC_b_949l74d4qH23wXpZSUvUZZ9zMlXpWshmexZDjgxl3DnW5rgNX1X1O_ZFcTpYjGyxte2yiFLQUGRC-87WinJ4tgmjUwf1s4QmTABdR5-QBaSeZJMkDaMyiaEFnNZrfB0uI1Jw5k_Xf1uZAnBQXp-XL28");'
+            ></div>
+            <div>
+              <p class="purpose-title">Borrowing</p>
+              <p class="purpose-text">Quick pick up or returning library materials</p>
+            </div>
+          </button>
+        </div>
+
+        <div class="page-actions">
+          <button id="cancelButton" type="button" class="cancel-btn">
+            <span class="material-symbols-outlined action-icon">close</span>
+            <span>Cancel</span>
+          </button>
+
+          <button id="continueButton" type="button" disabled class="continue-btn disabled-btn">
+            <span>Continue</span>
+            <span class="material-symbols-outlined action-icon">arrow_forward</span>
+          </button>
+        </div>
+      </div>
+    </main>
+
+    <footer class="site-footer">
+      <div class="footer-inner">
+        <div class="footer-left">
+          <p class="footer-text">© 2026 New Era University Library System</p>
+        </div>
+
+        <div class="footer-status">
+          <span class="material-symbols-outlined icon-base">wifi</span>
+          <span class="footer-status-text">Network Status: Online</span>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <div id="helpModal" class="modal hidden">
+    <div id="helpModalContent" class="modal-content modal-lg">
+      <div class="modal-header">
+        <div class="modal-header-left">
+          <div class="modal-icon-box">
+            <span class="material-symbols-outlined modal-icon">help</span>
+          </div>
+          <div>
+            <h3 class="modal-title">How to Use the NEU Library Kiosk</h3>
+            <p class="modal-subtitle">Instructions and helpful tips</p>
+          </div>
+        </div>
+
+        <button id="closeHelpModal" class="icon-close-btn" type="button">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+
+      <div class="modal-body stack-y-4 modal-text">
+        <div class="help-card">
+          <p class="help-card-title">Kiosk Instructions</p>
+          <ol class="help-list ordered">
+            <li>Select your purpose of visit by clicking one of the options on the screen.</li>
+            <li>Only one purpose can be selected at a time.</li>
+            <li>Once selected, click <span class="font-semibold">Continue</span> to proceed.</li>
+            <li>Click <span class="font-semibold">Cancel</span> if you want to go back to the home page.</li>
+            <li>Make sure the selected purpose matches your actual reason for visiting the library.</li>
+          </ol>
+        </div>
+
+        <div class="help-card primary">
+          <p class="help-card-title">Tips</p>
+          <ul class="help-list">
+            <li>Review your selected purpose before continuing.</li>
+            <li>If you selected the wrong option, just click another card to change it.</li>
+            <li>Ask library staff for help if you are unsure which purpose to choose.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="modal-footer modal-footer-end">
+        <button id="closeHelpModalFooter" class="primary-btn" type="button">Close</button>
+      </div>
+    </div>
+  </div>
+
+<script type="module" src="purpose.js"></script>
+</body>
+</html>
