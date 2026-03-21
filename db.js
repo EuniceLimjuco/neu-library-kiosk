@@ -8,20 +8,40 @@ export function normalizeText(value = "") {
   return String(value).trim().toLowerCase();
 }
 
-export function normalizeMeaningfulId(value = "") {
-  const cleaned = String(value).trim();
-  return cleaned && cleaned !== "-" ? cleaned.toLowerCase() : "";
+export function isMeaningfulValue(value = "") {
+  const normalized = normalizeText(value);
+  return (
+    normalized !== "" &&
+    normalized !== "-" &&
+    normalized !== "no email" &&
+    normalized !== "n/a" &&
+    normalized !== "null" &&
+    normalized !== "undefined"
+  );
 }
 
-export function makeBlockKey({ email = "", idNumber = "", name = "", role = "" }) {
-  const normalizedEmail = normalizeText(email);
+export function normalizeMeaningfulId(value = "") {
+  const cleaned = String(value).trim();
+  return isMeaningfulValue(cleaned) ? cleaned.toLowerCase() : "";
+}
+
+export function normalizeMeaningfulEmail(value = "") {
+  const cleaned = String(value).trim();
+  return isMeaningfulValue(cleaned) ? cleaned.toLowerCase() : "";
+}
+
+export function makeBlockKey({ email = "", idNumber = "", name = "" }) {
+  const normalizedEmail = normalizeMeaningfulEmail(email);
   const normalizedId = normalizeMeaningfulId(idNumber);
   const normalizedName = normalizeText(name);
-  const normalizedRole = normalizeText(role) || "unknown";
 
-  if (normalizedEmail) return `role:${normalizedRole}|email:${normalizedEmail}`;
-  if (normalizedId) return `role:${normalizedRole}|id:${normalizedId}`;
-  if (normalizedName) return `role:${normalizedRole}|name:${normalizedName}`;
+  if (normalizedEmail) return `email:${normalizedEmail}`;
+  if (normalizedId) return `id:${normalizedId}`;
+
+  if (normalizedName && normalizedName !== "-" && normalizedName !== "unknown user") {
+    return `name:${normalizedName}`;
+  }
+
   return "";
 }
 
@@ -55,8 +75,8 @@ export async function saveVisitorLog(visitorData) {
   const payload = {
     log_id: visitorData.logId || createLogId(),
     name: visitorData.name || "Unknown User",
-    email: visitorData.email || "",
-    id_number: visitorData.idNumber || "-",
+    email: isMeaningfulValue(visitorData.email) ? visitorData.email : "",
+    id_number: isMeaningfulValue(visitorData.idNumber) ? visitorData.idNumber : "-",
     college: visitorData.college || "-",
     role: visitorData.role || "Student",
     purpose: visitorData.purpose || "-",
@@ -109,8 +129,7 @@ export async function isUserBlocked(user = {}) {
   const blockKey = makeBlockKey({
     email: user.email,
     idNumber: user.idNumber,
-    name: user.name,
-    role: user.role
+    name: user.name
   });
 
   if (!blockKey) return false;
@@ -130,11 +149,14 @@ export async function isUserBlocked(user = {}) {
 }
 
 export async function saveBlockedUser(user, reason, blockedBy = "") {
+  const cleanEmail = normalizeMeaningfulEmail(user.userEmail);
+  const cleanIdNumber = normalizeMeaningfulId(user.idNumber);
+  const cleanName = normalizeText(user.userName);
+
   const blockKey = makeBlockKey({
-    email: user.userEmail,
-    idNumber: user.idNumber,
-    name: user.userName,
-    role: user.role
+    email: cleanEmail,
+    idNumber: cleanIdNumber,
+    name: cleanName
   });
 
   if (!blockKey) {
@@ -153,23 +175,23 @@ export async function saveBlockedUser(user, reason, blockedBy = "") {
     return existing[0];
   }
 
+  const payload = {
+    log_id: user.logId || "",
+    block_key: blockKey,
+    user_name: user.userName || "",
+    user_email: cleanEmail || "",
+    id_number: cleanIdNumber || "-",
+    college_department: user.collegeDepartment || "-",
+    role: user.role || "-",
+    purpose: user.purpose || "-",
+    status: user.status || "Checked In",
+    block_reason: reason,
+    blocked_by: blockedBy
+  };
+
   const { data, error } = await supabase
     .from("blocked_users")
-    .insert([
-      {
-        log_id: user.logId || "",
-        block_key: blockKey,
-        user_name: user.userName || "",
-        user_email: user.userEmail || "",
-        id_number: user.idNumber || "-",
-        college_department: user.collegeDepartment || "-",
-        role: user.role || "-",
-        purpose: user.purpose || "-",
-        status: user.status || "Checked In",
-        block_reason: reason,
-        blocked_by: blockedBy
-      }
-    ])
+    .insert([payload])
     .select()
     .single();
 
