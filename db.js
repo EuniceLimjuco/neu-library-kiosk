@@ -51,7 +51,7 @@ function mapBlockedUserRow(row = {}) {
     role: row.role || "",
     purpose: row.purpose || "",
     status: row.status || "",
-    reason: row.reason || "",
+    reason: row.block_reason || row.reason || "",
     blocked_by: row.blocked_by || "",
     blocked_at: row.blocked_at || null,
     block_key: row.block_key || ""
@@ -300,7 +300,7 @@ export async function blockUser({
     role: role || "",
     purpose: purpose || "",
     status: status || "Checked In",
-    reason: reason || "",
+    block_reason: reason || "",
     blocked_by: blockedBy || "",
     blocked_at: new Date().toISOString(),
     block_key: blockKey
