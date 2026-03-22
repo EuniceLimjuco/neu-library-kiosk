@@ -32,11 +32,14 @@ const attentionInsight = document.getElementById("attentionInsight");
 
 const ADMIN_SESSION_KEY = "currentAdminSession";
 const ITEMS_PER_PAGE = 10;
+const AUTO_REFRESH_INTERVAL = 4000;
 
 let currentPage = 1;
 let filteredLogsCache = [];
 let visitorLogsCache = [];
 let blockedUsersCache = [];
+let autoRefreshTimer = null;
+let isRefreshing = false;
 
 function loadAdminProfile() {
   const profileName = document.querySelector(".profile-name");
@@ -237,10 +240,10 @@ function getMostCommonValue(logs, key) {
 
 function updateInsights() {
   if (!visitorLogsCache.length) {
-    peakDayInsight.textContent = "No visitor data yet.";
-    busyTimeInsight.textContent = "No visitor data yet.";
-    topCollegeInsight.textContent = "No visitor data yet.";
-    attentionInsight.textContent = "No current alerts.";
+    if (peakDayInsight) peakDayInsight.textContent = "No visitor data yet.";
+    if (busyTimeInsight) busyTimeInsight.textContent = "No visitor data yet.";
+    if (topCollegeInsight) topCollegeInsight.textContent = "No visitor data yet.";
+    if (attentionInsight) attentionInsight.textContent = "No current alerts.";
     return;
   }
 
@@ -274,34 +277,42 @@ function updateInsights() {
   const topCollege = getMostCommonValue(visitorLogsCache, "college");
   const blockedCount = blockedUsersCache.length;
 
-  peakDayInsight.textContent = `${peakDay} currently has the highest activity.`;
-
-  if (busiestHour === null) {
-    busyTimeInsight.textContent = "No visitor data yet.";
-  } else {
-    const startHour = new Date();
-    startHour.setHours(busiestHour, 0, 0, 0);
-
-    const endHour = new Date();
-    endHour.setHours(busiestHour + 1, 0, 0, 0);
-
-    busyTimeInsight.textContent = `Most visits happen between ${startHour.toLocaleTimeString([], {
-      hour: "numeric",
-      minute: "2-digit"
-    })} and ${endHour.toLocaleTimeString([], {
-      hour: "numeric",
-      minute: "2-digit"
-    })}.`;
+  if (peakDayInsight) {
+    peakDayInsight.textContent = `${peakDay} currently has the highest activity.`;
   }
 
-  topCollegeInsight.textContent = topCollege
-    ? `${topCollege} has the highest number of visits.`
-    : "No college data yet.";
+  if (busyTimeInsight) {
+    if (busiestHour === null) {
+      busyTimeInsight.textContent = "No visitor data yet.";
+    } else {
+      const startHour = new Date();
+      startHour.setHours(busiestHour, 0, 0, 0);
 
-  attentionInsight.textContent =
-    blockedCount > 0
-      ? `${blockedCount} blocked user(s) are still listed in the system.`
-      : "No blocked users at the moment.";
+      const endHour = new Date();
+      endHour.setHours(busiestHour + 1, 0, 0, 0);
+
+      busyTimeInsight.textContent = `Most visits happen between ${startHour.toLocaleTimeString([], {
+        hour: "numeric",
+        minute: "2-digit"
+      })} and ${endHour.toLocaleTimeString([], {
+        hour: "numeric",
+        minute: "2-digit"
+      })}.`;
+    }
+  }
+
+  if (topCollegeInsight) {
+    topCollegeInsight.textContent = topCollege
+      ? `${topCollege} has the highest number of visits.`
+      : "No college data yet.";
+  }
+
+  if (attentionInsight) {
+    attentionInsight.textContent =
+      blockedCount > 0
+        ? `${blockedCount} blocked user(s) are still listed in the system.`
+        : "No blocked users at the moment.";
+  }
 }
 
 function getFilteredLogs() {
@@ -418,13 +429,15 @@ function renderTable() {
       .join("");
   }
 
-  resultsText.textContent = `Showing ${
-    totalCount === 0 ? 0 : start + 1
-  }-${Math.min(start + ITEMS_PER_PAGE, totalCount)} of ${totalCount} logs • Page ${currentPage} of ${totalPages}`;
+  if (resultsText) {
+    resultsText.textContent = `Showing ${
+      totalCount === 0 ? 0 : start + 1
+    }-${Math.min(start + ITEMS_PER_PAGE, totalCount)} of ${totalCount} logs • Page ${currentPage} of ${totalPages}`;
+  }
 
-  pageIndicator.textContent = String(currentPage);
-  prevPageBtn.disabled = currentPage === 1;
-  nextPageBtn.disabled = currentPage === totalPages;
+  if (pageIndicator) pageIndicator.textContent = String(currentPage);
+  if (prevPageBtn) prevPageBtn.disabled = currentPage === 1;
+  if (nextPageBtn) nextPageBtn.disabled = currentPage === totalPages;
 }
 
 async function markCurrentAdminSessionLoggedOut() {
@@ -461,21 +474,66 @@ function clearAllFilters() {
   renderTable();
 }
 
+function hasDataChanged(newLogs = [], newBlockedUsers = []) {
+  return JSON.stringify(newLogs) !== JSON.stringify(visitorLogsCache) ||
+         JSON.stringify(newBlockedUsers) !== JSON.stringify(blockedUsersCache);
+}
+
+async function refreshDashboardData(forceRender = false) {
+  if (isRefreshing) return;
+
+  isRefreshing = true;
+
+  try {
+    const [newVisitorLogs, newBlockedUsers] = await Promise.all([
+      getVisitorLogs(),
+      getBlockedUsers()
+    ]);
+
+    const changed = hasDataChanged(newVisitorLogs, newBlockedUsers);
+
+    if (changed || forceRender) {
+      visitorLogsCache = Array.isArray(newVisitorLogs) ? newVisitorLogs : [];
+      blockedUsersCache = Array.isArray(newBlockedUsers) ? newBlockedUsers : [];
+
+      updateBlockedUsersCount();
+      updateDashboardStats();
+      updateWeeklyChart();
+      updateInsights();
+      renderTable();
+    }
+  } catch (error) {
+    console.error("Auto-refresh failed:", error);
+  } finally {
+    isRefreshing = false;
+  }
+}
+
+function startAutoRefresh() {
+  stopAutoRefresh();
+  autoRefreshTimer = setInterval(() => {
+    if (!document.hidden) {
+      refreshDashboardData();
+    }
+  }, AUTO_REFRESH_INTERVAL);
+}
+
+function stopAutoRefresh() {
+  if (autoRefreshTimer) {
+    clearInterval(autoRefreshTimer);
+    autoRefreshTimer = null;
+  }
+}
+
 async function initializeDashboard() {
   loadAdminProfile();
-
-  visitorLogsCache = await getVisitorLogs();
-  blockedUsersCache = await getBlockedUsers();
-
-  updateBlockedUsersCount();
-  updateDashboardStats();
-  updateWeeklyChart();
-  updateInsights();
-  renderTable();
+  await refreshDashboardData(true);
+  startAutoRefresh();
 }
 
 if (logoutBtn) {
   logoutBtn.addEventListener("click", async function () {
+    stopAutoRefresh();
     await markCurrentAdminSessionLoggedOut();
     window.location.href = "index.html";
   });
@@ -545,5 +603,16 @@ if (nextPageBtn) {
     }
   });
 }
+
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) {
+    stopAutoRefresh();
+  } else {
+    refreshDashboardData(true);
+    startAutoRefresh();
+  }
+});
+
+window.addEventListener("beforeunload", stopAutoRefresh);
 
 initializeDashboard();
