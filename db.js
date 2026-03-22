@@ -8,82 +8,128 @@ export function normalizeText(value = "") {
   return String(value).trim().toLowerCase();
 }
 
-export function isMeaningfulValue(value = "") {
-  const normalized = normalizeText(value);
-  return (
-    normalized !== "" &&
-    normalized !== "-" &&
-    normalized !== "no email" &&
-    normalized !== "n/a" &&
-    normalized !== "null" &&
-    normalized !== "undefined"
-  );
-}
-
 export function normalizeMeaningfulId(value = "") {
   const cleaned = String(value).trim();
-  return isMeaningfulValue(cleaned) ? cleaned.toLowerCase() : "";
-}
-
-export function normalizeMeaningfulEmail(value = "") {
-  const cleaned = String(value).trim();
-  return isMeaningfulValue(cleaned) ? cleaned.toLowerCase() : "";
+  return cleaned && cleaned !== "-" ? cleaned.toLowerCase() : "";
 }
 
 export function makeBlockKey({ email = "", idNumber = "", name = "" }) {
-  const normalizedEmail = normalizeMeaningfulEmail(email);
+  const normalizedEmail = normalizeText(email);
   const normalizedId = normalizeMeaningfulId(idNumber);
   const normalizedName = normalizeText(name);
 
   if (normalizedEmail) return `email:${normalizedEmail}`;
   if (normalizedId) return `id:${normalizedId}`;
-
-  if (normalizedName && normalizedName !== "-" && normalizedName !== "unknown user") {
-    return `name:${normalizedName}`;
-  }
-
+  if (normalizedName) return `name:${normalizedName}`;
   return "";
 }
 
-export async function getVisitorLogs() {
-  const { data, error } = await supabase
-    .from("visitor_logs")
-    .select("*")
-    .order("check_in_time", { ascending: false });
-
-  if (error) {
-    console.error("Error fetching visitor logs:", error);
-    return [];
-  }
-
-  return (data || []).map((row) => ({
-    logId: row.log_id,
-    name: row.name,
-    email: row.email,
-    idNumber: row.id_number,
-    college: row.college,
-    role: row.role,
-    purpose: row.purpose,
-    loginMethod: row.login_method,
-    checkInTime: row.check_in_time,
-    checkOutTime: row.check_out_time,
-    status: row.status
-  }));
+function mapVisitorRow(row = {}) {
+  return {
+    id: row.id,
+    logId: row.log_id || "",
+    name: row.name || "",
+    email: row.email || "",
+    idNumber: row.id_number || "-",
+    college: row.college_department || "-",
+    role: row.role || "",
+    purpose: row.purpose || "",
+    status: row.status || "Checked In",
+    checkInTime: row.check_in_time || null,
+    checkOutTime: row.check_out_time || null
+  };
 }
 
-export async function saveVisitorLog(visitorData) {
+function mapBlockedUserRow(row = {}) {
+  return {
+    id: row.id,
+    log_id: row.log_id || "",
+    user_name: row.user_name || "",
+    user_email: row.user_email || "",
+    id_number: row.id_number || "-",
+    college_department: row.college_department || "-",
+    role: row.role || "",
+    purpose: row.purpose || "",
+    status: row.status || "",
+    reason: row.reason || "",
+    blocked_by: row.blocked_by || "",
+    blocked_at: row.blocked_at || null,
+    block_key: row.block_key || ""
+  };
+}
+
+/* =========================================
+   AUTO CHECKOUT FOR STUDENTS AFTER 1 HOUR
+========================================= */
+export async function autoCheckoutExpiredStudents() {
+  const { data, error } = await supabase
+    .from("visitor_logs")
+    .select("id, log_id, role, status, check_in_time, check_out_time")
+    .eq("status", "Checked In");
+
+  if (error) {
+    console.error("Failed to fetch checked-in student logs:", error);
+    return;
+  }
+
+  const now = Date.now();
+  const oneHourMs = 60 * 60 * 1000;
+
+  const expiredStudents = (data || []).filter((row) => {
+    const role = String(row.role || "").trim().toLowerCase();
+    const status = String(row.status || "").trim().toLowerCase();
+    const checkInTime = row.check_in_time ? new Date(row.check_in_time).getTime() : NaN;
+
+    if (status !== "checked in") return false;
+    if (!role.includes("student")) return false;
+    if (Number.isNaN(checkInTime)) return false;
+
+    return now - checkInTime >= oneHourMs;
+  });
+
+  if (!expiredStudents.length) return;
+
+  for (const student of expiredStudents) {
+    const { error: updateError } = await supabase
+      .from("visitor_logs")
+      .update({
+        status: "Checked Out",
+        check_out_time: new Date().toISOString()
+      })
+      .eq("id", student.id);
+
+    if (updateError) {
+      console.error(`Failed to auto-checkout student ${student.log_id}:`, updateError);
+    }
+  }
+}
+
+/* =========================================
+   VISITOR LOGS
+========================================= */
+export async function saveVisitorLog({
+  logId = createLogId(),
+  name = "",
+  email = "",
+  idNumber = "-",
+  collegeDepartment = "-",
+  role = "",
+  purpose = "",
+  status = "Checked In",
+  checkInTime = new Date().toISOString(),
+  checkOutTime = null
+}) {
   const payload = {
-    log_id: visitorData.logId || createLogId(),
-    name: visitorData.name || "Unknown User",
-    email: isMeaningfulValue(visitorData.email) ? visitorData.email : "",
-    id_number: isMeaningfulValue(visitorData.idNumber) ? visitorData.idNumber : "-",
-    college: visitorData.college || "-",
-    role: visitorData.role || "Student",
-    purpose: visitorData.purpose || "-",
-    login_method: visitorData.loginMethod || "",
-    check_in_time: visitorData.checkInTime || new Date().toISOString(),
-    check_out_time: visitorData.checkOutTime || null,
-    status: visitorData.status || "Checked In"
+    log_id: logId,
+    name: name || "",
+    email: email || "",
+    id_number: idNumber && idNumber !== "" ? idNumber : "-",
+    college_department: collegeDepartment || "-",
+    role: role || "",
+    purpose: purpose || "",
+    status: status || "Checked In",
+    check_in_time: checkInTime || new Date().toISOString(),
+    check_out_time: checkOutTime
   };
 
   const { data, error } = await supabase
@@ -92,25 +138,107 @@ export async function saveVisitorLog(visitorData) {
     .select()
     .single();
 
-  if (error) throw error;
-  return data;
-}
-
-export async function updateVisitorLogStatus(logId, status, checkOutTime = null) {
-  const updateData = { status };
-
-  if (checkOutTime) {
-    updateData.check_out_time = checkOutTime;
+  if (error) {
+    console.error("Failed to save visitor log:", error);
+    throw error;
   }
 
-  const { error } = await supabase
-    .from("visitor_logs")
-    .update(updateData)
-    .eq("log_id", logId);
-
-  if (error) throw error;
+  return mapVisitorRow(data);
 }
 
+export async function getVisitorLogs() {
+  await autoCheckoutExpiredStudents();
+
+  const { data, error } = await supabase
+    .from("visitor_logs")
+    .select("*")
+    .order("check_in_time", { ascending: false });
+
+  if (error) {
+    console.error("Failed to fetch visitor logs:", error);
+    return [];
+  }
+
+  return (data || []).map(mapVisitorRow);
+}
+
+export async function updateVisitorStatus(logId, status = "Checked Out") {
+  if (!logId) return null;
+
+  const updatePayload = {
+    status,
+    check_out_time: status === "Checked Out" ? new Date().toISOString() : null
+  };
+
+  const { data, error } = await supabase
+    .from("visitor_logs")
+    .update(updatePayload)
+    .eq("log_id", logId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Failed to update visitor status:", error);
+    throw error;
+  }
+
+  return mapVisitorRow(data);
+}
+
+/* =========================================
+   ADMIN SESSION
+========================================= */
+export async function saveAdminSession({
+  logId = createLogId(),
+  name = "",
+  email = "",
+  idNumber = "-",
+  collegeDepartment = "Admin",
+  role = "Admin",
+  purpose = "Admin Access",
+  status = "Checked In",
+  checkInTime = new Date().toISOString()
+}) {
+  return await saveVisitorLog({
+    logId,
+    name,
+    email,
+    idNumber,
+    collegeDepartment,
+    role,
+    purpose,
+    status,
+    checkInTime,
+    checkOutTime: null
+  });
+}
+
+export async function logoutAdminSession(logId) {
+  if (!logId) return null;
+
+  const now = new Date().toISOString();
+
+  const { data, error } = await supabase
+    .from("visitor_logs")
+    .update({
+      status: "Checked Out",
+      check_out_time: now
+    })
+    .eq("log_id", logId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Failed to log out admin session:", error);
+    throw error;
+  }
+
+  return mapVisitorRow(data);
+}
+
+/* =========================================
+   BLOCKED USERS
+========================================= */
 export async function getBlockedUsers() {
   const { data, error } = await supabase
     .from("blocked_users")
@@ -118,94 +246,30 @@ export async function getBlockedUsers() {
     .order("blocked_at", { ascending: false });
 
   if (error) {
-    console.error("Error fetching blocked users:", error);
+    console.error("Failed to fetch blocked users:", error);
     return [];
   }
 
-  return data || [];
+  return (data || []).map(mapBlockedUserRow);
 }
 
-export async function isUserBlocked(user = {}) {
-  const blockKey = makeBlockKey({
-    email: user.email,
-    idNumber: user.idNumber,
-    name: user.name
-  });
+export async function isUserBlocked({ email = "", idNumber = "", name = "" }) {
+  const blockKey = makeBlockKey({ email, idNumber, name });
 
   if (!blockKey) return false;
 
   const { data, error } = await supabase
     .from("blocked_users")
-    .select("id")
+    .select("id, block_key, user_email, id_number, user_name")
     .eq("block_key", blockKey)
     .limit(1);
 
   if (error) {
-    console.error("Error checking blocked user:", error);
+    console.error("Failed to check blocked user:", error);
     return false;
   }
 
   return Array.isArray(data) && data.length > 0;
-}
-
-export async function saveBlockedUser(user, reason, blockedBy = "") {
-  const cleanEmail = normalizeMeaningfulEmail(user.userEmail);
-  const cleanIdNumber = normalizeMeaningfulId(user.idNumber);
-  const cleanName = normalizeText(user.userName);
-
-  const blockKey = makeBlockKey({
-    email: cleanEmail,
-    idNumber: cleanIdNumber,
-    name: cleanName
-  });
-
-  if (!blockKey) {
-    throw new Error("Cannot block user without email, meaningful ID number, or name.");
-  }
-
-  const { data: existing, error: checkError } = await supabase
-    .from("blocked_users")
-    .select("id")
-    .eq("block_key", blockKey)
-    .limit(1);
-
-  if (checkError) throw checkError;
-
-  if (existing && existing.length > 0) {
-    return existing[0];
-  }
-
-  const payload = {
-    log_id: user.logId || "",
-    block_key: blockKey,
-    user_name: user.userName || "",
-    user_email: cleanEmail || "",
-    id_number: cleanIdNumber || "-",
-    college_department: user.collegeDepartment || "-",
-    role: user.role || "-",
-    purpose: user.purpose || "-",
-    status: user.status || "Checked In",
-    block_reason: reason,
-    blocked_by: blockedBy
-  };
-
-  const { data, error } = await supabase
-    .from("blocked_users")
-    .insert([payload])
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data;
-}
-
-export async function removeBlockedUser(logId) {
-  const { error } = await supabase
-    .from("blocked_users")
-    .delete()
-    .eq("log_id", logId);
-
-  if (error) throw error;
 }
 
 export async function blockUser({
@@ -214,90 +278,119 @@ export async function blockUser({
   userEmail = "",
   idNumber = "-",
   collegeDepartment = "-",
-  role = "-",
-  purpose = "-",
+  role = "",
+  purpose = "",
   status = "Checked In",
   reason = "",
   blockedBy = ""
 }) {
-  return await saveBlockedUser(
-    {
-      logId,
-      userName,
-      userEmail,
-      idNumber,
-      collegeDepartment,
-      role,
-      purpose,
-      status
-    },
-    reason,
-    blockedBy
-  );
-}
+  const blockKey = makeBlockKey({
+    email: userEmail,
+    idNumber,
+    name: userName
+  });
 
-export async function unblockUser(user) {
-  const logId = user?.logId || "";
-  if (!logId) {
-    throw new Error("Missing logId for unblockUser.");
+  const payload = {
+    log_id: logId || "",
+    user_name: userName || "",
+    user_email: userEmail || "",
+    id_number: idNumber && idNumber !== "" ? idNumber : "-",
+    college_department: collegeDepartment || "-",
+    role: role || "",
+    purpose: purpose || "",
+    status: status || "Checked In",
+    reason: reason || "",
+    blocked_by: blockedBy || "",
+    blocked_at: new Date().toISOString(),
+    block_key: blockKey
+  };
+
+  const { data, error } = await supabase
+    .from("blocked_users")
+    .upsert([payload], {
+      onConflict: "block_key"
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Failed to block user:", error);
+    throw error;
   }
 
-  return await removeBlockedUser(logId);
+  return mapBlockedUserRow(data);
 }
 
-export async function saveAdminSession(adminUser, sessionLogId, loginMethod) {
-  const { error } = await supabase
-    .from("admin_sessions")
-    .insert([
-      {
-        session_log_id: sessionLogId,
-        admin_name: adminUser.name,
-        admin_email: adminUser.email,
-        admin_role: adminUser.role || "Employee",
-        login_method: loginMethod || "Email Password",
-        status: "Checked In"
-      }
-    ]);
+export async function unblockUser({ logId = "", email = "", idNumber = "", name = "" }) {
+  let deleteQuery = supabase.from("blocked_users").delete();
 
-  if (error) throw error;
+  if (logId) {
+    deleteQuery = deleteQuery.eq("log_id", logId);
+  } else {
+    const blockKey = makeBlockKey({ email, idNumber, name });
+
+    if (!blockKey) {
+      throw new Error("No valid identifier provided for unblocking.");
+    }
+
+    deleteQuery = deleteQuery.eq("block_key", blockKey);
+  }
+
+  const { error } = await deleteQuery;
+
+  if (error) {
+    console.error("Failed to unblock user:", error);
+    throw error;
+  }
+
+  return true;
 }
 
-export async function logoutAdminSession(sessionLogId) {
-  const now = new Date().toISOString();
-
-  const { error } = await supabase
-    .from("admin_sessions")
-    .update({
-      logout_time: now,
-      status: "Checked Out"
-    })
-    .eq("session_log_id", sessionLogId);
-
-  if (error) throw error;
-
-  await updateVisitorLogStatus(sessionLogId, "Checked Out", now);
-}
-
+/* =========================================
+   ADMIN ACTIVITY LOGS
+========================================= */
 export async function saveAdminActivityLog({
-  adminEmail,
-  adminName,
-  action,
+  adminEmail = "",
+  adminName = "",
+  action = "",
   targetLogId = "",
   targetName = "",
   details = ""
 }) {
-  const { error } = await supabase
-    .from("admin_activity_logs")
-    .insert([
-      {
-        admin_email: adminEmail,
-        admin_name: adminName,
-        action,
-        target_log_id: targetLogId,
-        target_name: targetName,
-        details
-      }
-    ]);
+  const payload = {
+    admin_email: adminEmail || "",
+    admin_name: adminName || "",
+    action: action || "",
+    target_log_id: targetLogId || "",
+    target_name: targetName || "",
+    details: details || "",
+    created_at: new Date().toISOString()
+  };
 
-  if (error) throw error;
+  const { data, error } = await supabase
+    .from("admin_activity_logs")
+    .insert([payload])
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Failed to save admin activity log:", error);
+    return null;
+  }
+
+  return data;
+}
+
+export async function getAdminActivityLogs() {
+  const { data, error } = await supabase
+    .from("admin_activity_logs")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Failed to fetch admin activity logs:", error);
+    return [];
+  }
+
+  return data || [];
 }
