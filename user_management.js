@@ -32,12 +32,15 @@ const blockModalUserName = document.getElementById("blockModalUserName");
 
 const ADMIN_SESSION_KEY = "currentAdminSession";
 const ITEMS_PER_PAGE = 10;
+const AUTO_REFRESH_INTERVAL = 4000;
 
 let currentPage = 1;
 let filteredLogsCache = [];
 let visitorLogsCache = [];
 let blockedUsersCache = [];
 let selectedUserToBlock = null;
+let autoRefreshTimer = null;
+let isRefreshing = false;
 
 function getAdminSession() {
   try {
@@ -260,7 +263,7 @@ async function confirmBlockUser() {
 
     alert(`${selectedUserToBlock.userName || "User"} has been added to the block list.`);
     closeBlockReasonModal();
-    await initializeUserManagement();
+    await refreshUserManagementData(true);
   } catch (error) {
     console.error(error);
     alert("Failed to block user.");
@@ -351,10 +354,13 @@ function renderTable() {
 
   attachActionEvents();
 
-  resultsText.textContent = `Showing ${totalCount === 0 ? 0 : start + 1}-${Math.min(start + ITEMS_PER_PAGE, totalCount)} of ${totalCount} logs • Page ${currentPage} of ${totalPages}`;
-  pageIndicator.textContent = String(currentPage);
-  prevPageBtn.disabled = currentPage === 1;
-  nextPageBtn.disabled = currentPage === totalPages;
+  if (resultsText) {
+    resultsText.textContent = `Showing ${totalCount === 0 ? 0 : start + 1}-${Math.min(start + ITEMS_PER_PAGE, totalCount)} of ${totalCount} logs • Page ${currentPage} of ${totalPages}`;
+  }
+
+  if (pageIndicator) pageIndicator.textContent = String(currentPage);
+  if (prevPageBtn) prevPageBtn.disabled = currentPage === 1;
+  if (nextPageBtn) nextPageBtn.disabled = currentPage === totalPages;
 }
 
 function attachActionEvents() {
@@ -393,7 +399,7 @@ function attachActionEvents() {
         });
 
         alert(`${this.dataset.name || "User"} has been unblocked.`);
-        await initializeUserManagement();
+        await refreshUserManagementData(true);
       } catch (error) {
         console.error(error);
         alert("Failed to unblock user.");
@@ -414,15 +420,62 @@ function clearAllFilters() {
   renderTable();
 }
 
+function hasDataChanged(newLogs = [], newBlockedUsers = []) {
+  return JSON.stringify(newLogs) !== JSON.stringify(visitorLogsCache) ||
+         JSON.stringify(newBlockedUsers) !== JSON.stringify(blockedUsersCache);
+}
+
+async function refreshUserManagementData(forceRender = false) {
+  if (isRefreshing) return;
+
+  isRefreshing = true;
+
+  try {
+    const [newVisitorLogs, newBlockedUsers] = await Promise.all([
+      getVisitorLogs(),
+      getBlockedUsers()
+    ]);
+
+    const changed = hasDataChanged(newVisitorLogs, newBlockedUsers);
+
+    if (changed || forceRender) {
+      visitorLogsCache = Array.isArray(newVisitorLogs) ? newVisitorLogs : [];
+      blockedUsersCache = Array.isArray(newBlockedUsers) ? newBlockedUsers : [];
+      renderTable();
+    }
+  } catch (error) {
+    console.error("Auto-refresh failed:", error);
+  } finally {
+    isRefreshing = false;
+  }
+}
+
+function startAutoRefresh() {
+  stopAutoRefresh();
+  autoRefreshTimer = setInterval(() => {
+    if (!document.hidden) {
+      refreshUserManagementData();
+    }
+  }, AUTO_REFRESH_INTERVAL);
+}
+
+function stopAutoRefresh() {
+  if (autoRefreshTimer) {
+    clearInterval(autoRefreshTimer);
+    autoRefreshTimer = null;
+  }
+}
+
 async function initializeUserManagement() {
   loadAdminProfile();
-  visitorLogsCache = await getVisitorLogs();
-  blockedUsersCache = await getBlockedUsers();
-  renderTable();
+  await refreshUserManagementData(true);
+  startAutoRefresh();
 }
 
 async function handleAdminLogout() {
   try {
+    stopAutoRefresh();
+
     const sessionLogId = getStoredSessionLogId();
 
     if (sessionLogId) {
@@ -476,5 +529,16 @@ if (nextPageBtn) {
 if (closeBlockModalBtn) closeBlockModalBtn.addEventListener("click", closeBlockReasonModal);
 if (cancelBlockBtn) cancelBlockBtn.addEventListener("click", closeBlockReasonModal);
 if (confirmBlockBtn) confirmBlockBtn.addEventListener("click", confirmBlockUser);
+
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) {
+    stopAutoRefresh();
+  } else {
+    refreshUserManagementData(true);
+    startAutoRefresh();
+  }
+});
+
+window.addEventListener("beforeunload", stopAutoRefresh);
 
 initializeUserManagement();
