@@ -1,5 +1,5 @@
 import { supabase } from "./supabase.js";
-import { saveVisitorLog, saveAdminSession, isUserBlocked } from "./db.js";
+import { saveAdminSession, isUserBlocked } from "./db.js";
 
 const liveTime = document.getElementById("liveTime");
 
@@ -39,6 +39,7 @@ const studentNumberError = document.getElementById("studentNumberError");
 
 const googleSignInBtn = document.getElementById("googleSignInBtn");
 
+/* kept here in case these elements still exist in your HTML */
 const googleEmailModal = document.getElementById("googleEmailModal");
 const closeGoogleEmailModal = document.getElementById("closeGoogleEmailModal");
 const cancelGoogleEmailModal = document.getElementById("cancelGoogleEmailModal");
@@ -159,10 +160,7 @@ function saveCurrentVisitor(visitorData) {
 }
 
 function saveCurrentAdminSession(adminSessionData) {
-  const sessionLogId =
-    adminSessionData.sessionLogId ||
-    adminSessionData.logId ||
-    "";
+  const sessionLogId = adminSessionData.sessionLogId || adminSessionData.logId || "";
 
   const payload = {
     logId: sessionLogId,
@@ -182,6 +180,7 @@ function saveCurrentAdminSession(adminSessionData) {
 function clearOAuthParamsFromUrl() {
   const cleanUrl = new URL(window.location.href);
   cleanUrl.searchParams.delete("admin_google");
+  cleanUrl.searchParams.delete("student_google");
   cleanUrl.searchParams.delete("code");
   cleanUrl.searchParams.delete("error");
   cleanUrl.hash = "";
@@ -189,7 +188,10 @@ function clearOAuthParamsFromUrl() {
 }
 
 async function resetForStudentCheckIn() {
-  clearStoredSessions();
+  clearCurrentVisitor();
+  localStorage.removeItem("selectedCollegeDepartment");
+  localStorage.removeItem("sessionLogId");
+  sessionStorage.removeItem("sessionLogId");
 
   try {
     await supabase.auth.signOut();
@@ -272,18 +274,7 @@ function closeStudentNumberModalFunc() {
   closeModal(studentNumberModal);
 }
 
-async function openGoogleEmailModalFunc() {
-  await resetForStudentCheckIn();
-
-  if (googleEmailInput) googleEmailInput.value = "";
-  if (googleEmailError) googleEmailError.classList.add("hidden");
-  openModal(googleEmailModal);
-
-  setTimeout(() => {
-    if (googleEmailInput) googleEmailInput.focus();
-  }, 100);
-}
-
+/* kept only in case your HTML still has this modal */
 function closeGoogleEmailModalFunc() {
   if (googleEmailInput) googleEmailInput.value = "";
   if (googleEmailError) googleEmailError.classList.add("hidden");
@@ -394,34 +385,25 @@ async function handleStudentNumberSubmit() {
   openCollegeDepartmentModalFunc();
 }
 
-async function handleGoogleEmailSubmit() {
-  const email = googleEmailInput ? googleEmailInput.value.trim() : "";
+/* THIS RESTORES THE REAL GOOGLE STUDENT FLOW */
+async function handleStudentGoogleLogin() {
+  try {
+    await resetForStudentCheckIn();
 
-  if (!email || !isValidEmail(email)) {
-    if (googleEmailError) {
-      googleEmailError.textContent = "Please enter a valid email address.";
-      googleEmailError.classList.remove("hidden");
-    }
-    return;
+    const redirectTo = `${LIVE_SITE_ORIGIN}/index.html?student_google=1`;
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo
+      }
+    });
+
+    if (error) throw error;
+  } catch (error) {
+    console.error("Student Google login failed:", error);
+    alert("Google sign in failed. Please try again.");
   }
-
-  const blocked = await isUserBlocked({ email });
-
-  if (blocked) {
-    showBlockedMessage("This email is blocked and cannot access the system.");
-    return;
-  }
-
-  saveCurrentVisitor({
-    name: getNameFromEmail(email),
-    email,
-    idNumber: "-",
-    role: "Student",
-    authType: "google-email"
-  });
-
-  closeGoogleEmailModalFunc();
-  openCollegeDepartmentModalFunc();
 }
 
 async function handleAdminLogin() {
@@ -510,10 +492,11 @@ async function handleAdminGoogleLogin() {
 async function handleGoogleAuthResult() {
   const url = new URL(window.location.href);
   const isAdminGoogleFlow = url.searchParams.get("admin_google") === "1";
+  const isStudentGoogleFlow = url.searchParams.get("student_google") === "1";
   const hasCode = url.searchParams.has("code");
   const hasError = url.searchParams.has("error");
 
-  if (!isAdminGoogleFlow && !hasCode && !hasError) return;
+  if (!isAdminGoogleFlow && !isStudentGoogleFlow && !hasCode && !hasError) return;
 
   if (hasError) {
     console.error("OAuth error:", url.searchParams.get("error"));
@@ -536,7 +519,7 @@ async function handleGoogleAuthResult() {
       session.user.user_metadata?.name ||
       getNameFromEmail(email);
 
-    const blocked = await isUserBlocked({ email });
+    const blocked = await isUserBlocked({ email, name });
 
     if (blocked) {
       await supabase.auth.signOut();
@@ -546,30 +529,46 @@ async function handleGoogleAuthResult() {
       return;
     }
 
-    const sessionLogId = `admin_${Date.now()}`;
+    if (isAdminGoogleFlow) {
+      const sessionLogId = `admin_${Date.now()}`;
 
-    await saveAdminSession({
-      logId: sessionLogId,
-      name,
-      email,
-      idNumber: "-",
-      collegeDepartment: "Admin",
-      role: getAdminRoleFromEmail(email),
-      purpose: "Admin Access",
-      status: "Checked In"
-    });
+      await saveAdminSession({
+        logId: sessionLogId,
+        name,
+        email,
+        idNumber: "-",
+        collegeDepartment: "Admin",
+        role: getAdminRoleFromEmail(email),
+        purpose: "Admin Access",
+        status: "Checked In"
+      });
 
-    saveCurrentAdminSession({
-      sessionLogId,
-      email,
-      name,
-      role: getAdminRoleFromEmail(email)
-    });
+      saveCurrentAdminSession({
+        sessionLogId,
+        email,
+        name,
+        role: getAdminRoleFromEmail(email)
+      });
 
-    clearOAuthParamsFromUrl();
-    window.location.href = "admindb.html";
+      clearOAuthParamsFromUrl();
+      window.location.href = "admindb.html";
+      return;
+    }
+
+    if (isStudentGoogleFlow) {
+      saveCurrentVisitor({
+        name,
+        email,
+        idNumber: "-",
+        role: "Student",
+        authType: "google-oauth"
+      });
+
+      clearOAuthParamsFromUrl();
+      openCollegeDepartmentModalFunc();
+    }
   } catch (error) {
-    console.error("Failed to complete Google admin login:", error);
+    console.error("Failed to complete Google login:", error);
     clearOAuthParamsFromUrl();
   }
 }
@@ -619,10 +618,43 @@ if (closeStudentNumberModal) closeStudentNumberModal.addEventListener("click", c
 if (cancelStudentNumberModal) cancelStudentNumberModal.addEventListener("click", closeStudentNumberModalFunc);
 if (nextStudentNumberModal) nextStudentNumberModal.addEventListener("click", handleStudentNumberSubmit);
 
-if (googleSignInBtn) googleSignInBtn.addEventListener("click", openGoogleEmailModalFunc);
+/* student google button now opens real google chooser */
+if (googleSignInBtn) googleSignInBtn.addEventListener("click", handleStudentGoogleLogin);
+
+/* kept only if these modal elements still exist */
 if (closeGoogleEmailModal) closeGoogleEmailModal.addEventListener("click", closeGoogleEmailModalFunc);
 if (cancelGoogleEmailModal) cancelGoogleEmailModal.addEventListener("click", closeGoogleEmailModalFunc);
-if (nextGoogleEmailModal) nextGoogleEmailModal.addEventListener("click", handleGoogleEmailSubmit);
+if (nextGoogleEmailModal && googleEmailInput) {
+  nextGoogleEmailModal.addEventListener("click", async () => {
+    const email = googleEmailInput.value.trim();
+
+    if (!email || !isValidEmail(email)) {
+      if (googleEmailError) {
+        googleEmailError.textContent = "Please enter a valid email address.";
+        googleEmailError.classList.remove("hidden");
+      }
+      return;
+    }
+
+    const blocked = await isUserBlocked({ email });
+
+    if (blocked) {
+      showBlockedMessage("This email is blocked and cannot access the system.");
+      return;
+    }
+
+    saveCurrentVisitor({
+      name: getNameFromEmail(email),
+      email,
+      idNumber: "-",
+      role: "Student",
+      authType: "google-email"
+    });
+
+    closeGoogleEmailModalFunc();
+    openCollegeDepartmentModalFunc();
+  });
+}
 
 if (collegeDepartmentSelect) {
   collegeDepartmentSelect.addEventListener("change", () => {
