@@ -318,341 +318,260 @@ function closeCollegeDepartmentModalFunc() {
   closeModal(collegeDepartmentModal);
 }
 
-async function handleGoogleSignIn() {
-  try {
-    await resetForStudentCheckIn();
+async function proceedToPurposePage() {
+  const selectedValue = collegeDepartmentSelect ? collegeDepartmentSelect.value.trim() : "";
 
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${LIVE_SITE_ORIGIN}/index.html`,
-        queryParams: {
-          prompt: "select_account"
-        },
-        scopes: "openid email profile https://www.googleapis.com/auth/userinfo.email"
-      }
-    });
-
-    if (error) {
-      console.error("Google sign-in error:", error);
-      alert("Google sign-in failed.");
-    }
-  } catch (error) {
-    console.error("Unexpected Google sign-in error:", error);
-    alert("Google sign-in failed.");
+  if (!selectedValue) {
+    if (collegeDepartmentError) collegeDepartmentError.classList.remove("hidden");
+    setNextCollegeButtonState(false);
+    return;
   }
+
+  if (collegeDepartmentError) collegeDepartmentError.classList.add("hidden");
+
+  const currentVisitor = getCurrentVisitor();
+  currentVisitor.college = selectedValue;
+  currentVisitor.collegeDepartment = selectedValue;
+  saveCurrentVisitor(currentVisitor);
+  localStorage.setItem("selectedCollegeDepartment", selectedValue);
+
+  window.location.href = "purpose.html";
 }
 
-async function handleAdminGoogleOAuth() {
-  try {
-    clearStoredSessions();
+async function handleStudentNumberSubmit() {
+  const studentName = studentNameInput ? studentNameInput.value.trim() : "";
+  const studentNumber = studentNumberInput ? studentNumberInput.value.trim() : "";
 
-    try {
-      await supabase.auth.signOut();
-    } catch (error) {
-      console.error("Failed to clear Supabase session before admin Google login:", error);
+  let hasError = false;
+
+  if (!studentName) {
+    if (studentNameError) {
+      studentNameError.textContent = "Please enter your full name.";
+      studentNameError.classList.remove("hidden");
     }
-
-    const redirectUrl = new URL(`${LIVE_SITE_ORIGIN}/index.html`);
-    redirectUrl.searchParams.set("admin_google", "1");
-
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: redirectUrl.toString(),
-        queryParams: {
-          prompt: "select_account"
-        },
-        scopes: "openid email profile https://www.googleapis.com/auth/userinfo.email"
-      }
-    });
-
-    if (error) {
-      console.error("Admin Google sign-in error:", error);
-      alert("Admin Google sign-in failed.");
-    }
-  } catch (error) {
-    console.error("Unexpected admin Google sign-in error:", error);
-    alert("Admin Google sign-in failed.");
+    hasError = true;
+  } else if (studentNameError) {
+    studentNameError.classList.add("hidden");
   }
+
+  if (!studentNumber) {
+    if (studentNumberError) {
+      studentNumberError.textContent = "Please enter your student number.";
+      studentNumberError.classList.remove("hidden");
+    }
+    hasError = true;
+  } else if (!isValidStudentNumber(studentNumber)) {
+    if (studentNumberError) {
+      studentNumberError.textContent = "Student number must be exactly 10 digits.";
+      studentNumberError.classList.remove("hidden");
+    }
+    hasError = true;
+  } else if (studentNumberError) {
+    studentNumberError.classList.add("hidden");
+  }
+
+  if (hasError) return;
+
+  const blocked = await isUserBlocked({
+    idNumber: studentNumber,
+    name: studentName
+  });
+
+  if (blocked) {
+    showBlockedMessage("This student is blocked and cannot access the system.");
+    return;
+  }
+
+  saveCurrentVisitor({
+    name: studentName,
+    email: "",
+    idNumber: studentNumber,
+    role: "Student",
+    authType: "student-number"
+  });
+
+  closeStudentNumberModalFunc();
+  openCollegeDepartmentModalFunc();
 }
 
-async function handleGoogleAuthResult() {
-  try {
-    const url = new URL(window.location.href);
-    const hasHashAccessToken = window.location.hash.includes("access_token=");
-    const hasHashError = window.location.hash.includes("error=");
-    const hasOAuthCode = url.searchParams.get("code");
-    const hasOAuthError = url.searchParams.get("error");
-    const isAdminGoogleLogin = url.searchParams.get("admin_google") === "1";
+async function handleGoogleEmailSubmit() {
+  const email = googleEmailInput ? googleEmailInput.value.trim() : "";
 
-    const sessionResult = await supabase.auth.getSession();
-    const session = sessionResult?.data?.session || null;
-    const error = sessionResult?.error || null;
-
-    if (error) {
-      console.error("Error getting Google session:", error);
-      return;
+  if (!email || !isValidEmail(email)) {
+    if (googleEmailError) {
+      googleEmailError.textContent = "Please enter a valid email address.";
+      googleEmailError.classList.remove("hidden");
     }
-
-    const hasAnyOAuthSignal =
-      !!hasOAuthCode ||
-      !!hasOAuthError ||
-      hasHashAccessToken ||
-      hasHashError ||
-      !!session;
-
-    if (!hasAnyOAuthSignal) {
-      return;
-    }
-
-    if (hasOAuthError || hasHashError) {
-      console.error("Google OAuth returned an error.");
-      clearOAuthParamsFromUrl();
-      return;
-    }
-
-    if (!session || !session.user) {
-      return;
-    }
-
-    const email = session.user.email || "";
-    const fullName =
-      session.user.user_metadata?.full_name ||
-      session.user.user_metadata?.name ||
-      getNameFromEmail(email);
-
-    if (isAdminGoogleLogin) {
-      if (!isValidEmail(email)) {
-        await supabase.auth.signOut();
-        alert("Invalid Google email account for admin login.");
-        clearOAuthParamsFromUrl();
-        return;
-      }
-
-      const adminUser = {
-        name: fullName,
-        email,
-        idNumber: "-",
-        role: getAdminRoleFromEmail(email)
-      };
-
-      if (await isUserBlocked(adminUser)) {
-        await supabase.auth.signOut();
-        alert("This admin account is blocked and cannot log in.");
-        clearOAuthParamsFromUrl();
-        return;
-      }
-
-      try {
-        const createdLog = await saveVisitorLog({
-          ...adminUser,
-          college: "Employee",
-          purpose: "Admin Google Login",
-          status: "Checked In",
-          loginMethod: "Google Login"
-        });
-
-        const sessionLogId = createdLog.log_id || createdLog.logId;
-
-        await saveAdminSession(
-          adminUser,
-          sessionLogId,
-          "Google Login"
-        );
-
-        saveCurrentAdminSession({
-          logId: sessionLogId,
-          sessionLogId,
-          email: adminUser.email,
-          name: adminUser.name,
-          role: adminUser.role
-        });
-
-        clearCurrentVisitor();
-        await supabase.auth.signOut();
-        clearOAuthParamsFromUrl();
-
-        window.location.href = "admindb.html";
-        return;
-      } catch (saveError) {
-        console.error("Failed admin Google login save:", saveError);
-        alert("Failed to complete admin Google login.");
-        return;
-      }
-    }
-
-    if (!isValidEmail(email)) {
-      await supabase.auth.signOut();
-      alert("Invalid Google email account.");
-      clearOAuthParamsFromUrl();
-      return;
-    }
-
-    const visitor = {
-      name: fullName,
-      idNumber: "-",
-      email,
-      role: "Student",
-      loginMethod: "Google OAuth"
-    };
-
-    if (await isUserBlocked(visitor)) {
-      await supabase.auth.signOut();
-      showBlockedMessage("This user is blocked and cannot check in.");
-      clearOAuthParamsFromUrl();
-      return;
-    }
-
-    clearAdminSession();
-    saveCurrentVisitor(visitor);
-
-    await supabase.auth.signOut();
-    clearOAuthParamsFromUrl();
-    openCollegeDepartmentModalFunc();
-  } catch (error) {
-    console.error("Google auth result error:", error);
+    return;
   }
+
+  const blocked = await isUserBlocked({ email });
+
+  if (blocked) {
+    showBlockedMessage("This email is blocked and cannot access the system.");
+    return;
+  }
+
+  saveCurrentVisitor({
+    name: getNameFromEmail(email),
+    email,
+    idNumber: "-",
+    role: "Student",
+    authType: "google-email"
+  });
+
+  closeGoogleEmailModalFunc();
+  openCollegeDepartmentModalFunc();
 }
 
 async function handleAdminLogin() {
-  const email = adminIdentifier.value.trim();
-  const password = adminPassword.value.trim();
+  const identifier = adminIdentifier ? adminIdentifier.value.trim() : "";
+  const password = adminPassword ? adminPassword.value : "";
 
   if (adminError) adminError.classList.add("hidden");
   if (adminSuccess) adminSuccess.classList.add("hidden");
 
-  if (!email || !password) {
-    adminError.textContent = "Please enter your email and password.";
-    adminError.classList.remove("hidden");
+  if (!identifier || !password) {
+    if (adminError) {
+      adminError.textContent = "Please enter your institutional email and password.";
+      adminError.classList.remove("hidden");
+    }
     return;
   }
 
-  if (!isValidEmail(email)) {
-    adminError.textContent = "Please enter a valid email address.";
-    adminError.classList.remove("hidden");
-    return;
-  }
+  const blocked = await isUserBlocked({ email: identifier });
 
-  const adminUser = {
-    name: getNameFromEmail(email),
-    email,
-    idNumber: "-",
-    role: getAdminRoleFromEmail(email)
-  };
-
-  if (await isUserBlocked(adminUser)) {
-    adminError.textContent = "This account is blocked and cannot log in.";
-    adminError.classList.remove("hidden");
+  if (blocked) {
+    showBlockedMessage("This admin account is blocked and cannot access the system.");
     return;
   }
 
   try {
-    clearCurrentVisitor();
+    const sessionLogId = `admin_${Date.now()}`;
 
-    const createdLog = await saveVisitorLog({
-      ...adminUser,
-      college: "Employee",
-      purpose: "Admin Login",
-      status: "Checked In",
-      loginMethod: "Email Password"
+    await saveAdminSession({
+      logId: sessionLogId,
+      name: getNameFromEmail(identifier),
+      email: identifier,
+      idNumber: "-",
+      collegeDepartment: "Admin",
+      role: getAdminRoleFromEmail(identifier),
+      purpose: "Admin Access",
+      status: "Checked In"
     });
-
-    const sessionLogId = createdLog.log_id || createdLog.logId;
-
-    await saveAdminSession(
-      adminUser,
-      sessionLogId,
-      "Email Password"
-    );
 
     saveCurrentAdminSession({
-      logId: sessionLogId,
       sessionLogId,
-      email: adminUser.email,
-      name: adminUser.name,
-      role: adminUser.role
+      email: identifier,
+      name: getNameFromEmail(identifier),
+      role: getAdminRoleFromEmail(identifier)
     });
 
-    adminSuccess.textContent = "Login successful. Redirecting to admin dashboard...";
-    adminSuccess.classList.remove("hidden");
+    if (adminSuccess) {
+      adminSuccess.textContent = "Login successful. Redirecting to admin dashboard...";
+      adminSuccess.classList.remove("hidden");
+    }
 
     setTimeout(() => {
       window.location.href = "admindb.html";
     }, 800);
   } catch (error) {
-    console.error(error);
-    adminError.textContent = "Failed to log in admin.";
-    adminError.classList.remove("hidden");
+    console.error("Admin login failed:", error);
+    if (adminError) {
+      adminError.textContent = "Admin login failed. Please try again.";
+      adminError.classList.remove("hidden");
+    }
   }
 }
 
-async function handleStudentNumberNext() {
-  const studentName = studentNameInput.value.trim();
-  const studentNumber = studentNumberInput.value.trim();
+async function handleAdminGoogleLogin() {
+  try {
+    clearStoredSessions();
 
-  studentNameError.classList.add("hidden");
-  studentNumberError.classList.add("hidden");
+    const redirectTo = `${LIVE_SITE_ORIGIN}/index.html?admin_google=1`;
 
-  if (!studentName) {
-    studentNameError.classList.remove("hidden");
-    studentNameInput.focus();
-    return;
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo
+      }
+    });
+
+    if (error) throw error;
+  } catch (error) {
+    console.error("Google admin login failed:", error);
+    if (adminError) {
+      adminError.textContent = "Google login failed. Please try again.";
+      adminError.classList.remove("hidden");
+    }
   }
-
-  if (!isValidStudentNumber(studentNumber)) {
-    studentNumberError.classList.remove("hidden");
-    studentNumberInput.focus();
-    return;
-  }
-
-  const visitor = {
-    name: studentName,
-    idNumber: studentNumber,
-    email: "",
-    role: "Student",
-    loginMethod: "Student Number"
-  };
-
-  if (await isUserBlocked(visitor)) {
-    showBlockedMessage("This user is blocked and cannot check in.");
-    return;
-  }
-
-  clearAdminSession();
-  saveCurrentVisitor(visitor);
-  closeStudentNumberModalFunc();
-  openCollegeDepartmentModalFunc();
 }
 
-async function handleGoogleEmailNext() {
-  const email = googleEmailInput.value.trim();
+async function handleGoogleAuthResult() {
+  const url = new URL(window.location.href);
+  const isAdminGoogleFlow = url.searchParams.get("admin_google") === "1";
+  const hasCode = url.searchParams.has("code");
+  const hasError = url.searchParams.has("error");
 
-  googleEmailError.classList.add("hidden");
+  if (!isAdminGoogleFlow && !hasCode && !hasError) return;
 
-  if (!isValidEmail(email)) {
-    googleEmailError.classList.remove("hidden");
-    googleEmailInput.focus();
+  if (hasError) {
+    console.error("OAuth error:", url.searchParams.get("error"));
+    clearOAuthParamsFromUrl();
     return;
   }
 
-  const visitor = {
-    name: getNameFromEmail(email),
-    idNumber: "-",
-    email,
-    role: "Student",
-    loginMethod: "Google Email"
-  };
+  try {
+    const {
+      data: { session },
+      error
+    } = await supabase.auth.getSession();
 
-  if (await isUserBlocked(visitor)) {
-    showBlockedMessage("This user is blocked and cannot check in.");
-    return;
+    if (error) throw error;
+    if (!session || !session.user) return;
+
+    const email = session.user.email || "";
+    const name =
+      session.user.user_metadata?.full_name ||
+      session.user.user_metadata?.name ||
+      getNameFromEmail(email);
+
+    const blocked = await isUserBlocked({ email });
+
+    if (blocked) {
+      await supabase.auth.signOut();
+      clearStoredSessions();
+      showBlockedMessage("This Google account is blocked and cannot access the system.");
+      clearOAuthParamsFromUrl();
+      return;
+    }
+
+    const sessionLogId = `admin_${Date.now()}`;
+
+    await saveAdminSession({
+      logId: sessionLogId,
+      name,
+      email,
+      idNumber: "-",
+      collegeDepartment: "Admin",
+      role: getAdminRoleFromEmail(email),
+      purpose: "Admin Access",
+      status: "Checked In"
+    });
+
+    saveCurrentAdminSession({
+      sessionLogId,
+      email,
+      name,
+      role: getAdminRoleFromEmail(email)
+    });
+
+    clearOAuthParamsFromUrl();
+    window.location.href = "admindb.html";
+  } catch (error) {
+    console.error("Failed to complete Google admin login:", error);
+    clearOAuthParamsFromUrl();
   }
-
-  clearAdminSession();
-  saveCurrentVisitor(visitor);
-  closeGoogleEmailModalFunc();
-  openCollegeDepartmentModalFunc();
 }
 
 if (helpBtn) helpBtn.addEventListener("click", openHelpModalFunc);
@@ -663,185 +582,62 @@ if (adminLoginBtn) adminLoginBtn.addEventListener("click", openAdminModal);
 if (closeAdminModal) closeAdminModal.addEventListener("click", closeAdminModalFunc);
 if (cancelAdminModal) cancelAdminModal.addEventListener("click", closeAdminModalFunc);
 if (submitAdminLogin) submitAdminLogin.addEventListener("click", handleAdminLogin);
-
-if (adminGoogleQuickLogin) {
-  adminGoogleQuickLogin.addEventListener("click", function () {
-    handleAdminGoogleOAuth();
-  });
-}
-
-if (adminPassword) {
-  adminPassword.addEventListener("keydown", function (e) {
-    if (e.key === "Enter") handleAdminLogin();
-  });
-}
-
-if (adminIdentifier) {
-  adminIdentifier.addEventListener("keydown", function (e) {
-    if (e.key === "Enter") handleAdminLogin();
-  });
-}
+if (adminGoogleQuickLogin) adminGoogleQuickLogin.addEventListener("click", handleAdminGoogleLogin);
 
 if (togglePassword) {
-  togglePassword.addEventListener("click", function () {
-    const isPassword = adminPassword.type === "password";
-    adminPassword.type = isPassword ? "text" : "password";
-    togglePasswordIcon.textContent = isPassword ? "visibility_off" : "visibility";
+  togglePassword.addEventListener("click", () => {
+    if (!adminPassword || !togglePasswordIcon) return;
+
+    const isHidden = adminPassword.type === "password";
+    adminPassword.type = isHidden ? "text" : "password";
+    togglePasswordIcon.textContent = isHidden ? "visibility_off" : "visibility";
   });
 }
 
 if (scanNowBtn) scanNowBtn.addEventListener("click", openScanModalFunc);
 if (closeScanModal) closeScanModal.addEventListener("click", closeScanModalFunc);
 if (cancelScanModal) cancelScanModal.addEventListener("click", closeScanModalFunc);
-
 if (doneScanModal) {
-  doneScanModal.addEventListener("click", async function () {
-    const visitor = {
-      name: "Student User",
-      idNumber: "Scanned ID",
+  doneScanModal.addEventListener("click", async () => {
+    await resetForStudentCheckIn();
+
+    saveCurrentVisitor({
+      name: "Scanned Student",
       email: "",
+      idNumber: "-",
       role: "Student",
-      loginMethod: "ID Scan"
-    };
+      authType: "tap-id"
+    });
 
-    if (await isUserBlocked(visitor)) {
-      closeScanModalFunc();
-      showBlockedMessage("This user is blocked and cannot check in.");
-      return;
-    }
-
-    clearAdminSession();
-    saveCurrentVisitor(visitor);
     closeScanModalFunc();
     openCollegeDepartmentModalFunc();
   });
 }
 
-if (studentNumberBtn) {
-  studentNumberBtn.addEventListener("click", function () {
-    openStudentNumberModalFunc();
-  });
-}
-
+if (studentNumberBtn) studentNumberBtn.addEventListener("click", openStudentNumberModalFunc);
 if (closeStudentNumberModal) closeStudentNumberModal.addEventListener("click", closeStudentNumberModalFunc);
 if (cancelStudentNumberModal) cancelStudentNumberModal.addEventListener("click", closeStudentNumberModalFunc);
-if (nextStudentNumberModal) nextStudentNumberModal.addEventListener("click", handleStudentNumberNext);
+if (nextStudentNumberModal) nextStudentNumberModal.addEventListener("click", handleStudentNumberSubmit);
 
-if (studentNameInput) {
-  studentNameInput.addEventListener("input", function () {
-    studentNameError.classList.add("hidden");
-  });
-
-  studentNameInput.addEventListener("keydown", function (e) {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      studentNumberInput.focus();
-    }
-  });
-}
-
-if (studentNumberInput) {
-  studentNumberInput.addEventListener("input", function () {
-    this.value = this.value.replace(/\D/g, "").slice(0, 10);
-    studentNumberError.classList.add("hidden");
-  });
-
-  studentNumberInput.addEventListener("keydown", function (e) {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      handleStudentNumberNext();
-    }
-  });
-}
-
-if (googleSignInBtn) {
-  googleSignInBtn.addEventListener("click", function () {
-    handleGoogleSignIn();
-  });
-}
-
-if (closeGoogleEmailModal) {
-  closeGoogleEmailModal.addEventListener("click", closeGoogleEmailModalFunc);
-}
-if (cancelGoogleEmailModal) {
-  cancelGoogleEmailModal.addEventListener("click", closeGoogleEmailModalFunc);
-}
-if (nextGoogleEmailModal) {
-  nextGoogleEmailModal.addEventListener("click", handleGoogleEmailNext);
-}
-
-if (googleEmailInput) {
-  googleEmailInput.addEventListener("input", function () {
-    googleEmailError.classList.add("hidden");
-  });
-
-  googleEmailInput.addEventListener("keydown", function (e) {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      handleGoogleEmailNext();
-    }
-  });
-}
-
-if (closeCollegeDepartmentModal) {
-  closeCollegeDepartmentModal.addEventListener("click", closeCollegeDepartmentModalFunc);
-}
-if (cancelCollegeDepartmentModal) {
-  cancelCollegeDepartmentModal.addEventListener("click", closeCollegeDepartmentModalFunc);
-}
+if (googleSignInBtn) googleSignInBtn.addEventListener("click", openGoogleEmailModalFunc);
+if (closeGoogleEmailModal) closeGoogleEmailModal.addEventListener("click", closeGoogleEmailModalFunc);
+if (cancelGoogleEmailModal) cancelGoogleEmailModal.addEventListener("click", closeGoogleEmailModalFunc);
+if (nextGoogleEmailModal) nextGoogleEmailModal.addEventListener("click", handleGoogleEmailSubmit);
 
 if (collegeDepartmentSelect) {
-  collegeDepartmentSelect.addEventListener("change", function () {
-    collegeDepartmentError.classList.add("hidden");
-    setNextCollegeButtonState(!!this.value);
+  collegeDepartmentSelect.addEventListener("change", () => {
+    const hasValue = !!collegeDepartmentSelect.value.trim();
+    if (collegeDepartmentError) collegeDepartmentError.classList.add("hidden");
+    setNextCollegeButtonState(hasValue);
   });
 }
 
-if (nextCollegeDepartmentModal) {
-  nextCollegeDepartmentModal.addEventListener("click", async function () {
-    if (!collegeDepartmentSelect.value) {
-      collegeDepartmentError.classList.remove("hidden");
-      return;
-    }
+if (closeCollegeDepartmentModal) closeCollegeDepartmentModal.addEventListener("click", closeCollegeDepartmentModalFunc);
+if (cancelCollegeDepartmentModal) cancelCollegeDepartmentModal.addEventListener("click", closeCollegeDepartmentModalFunc);
+if (nextCollegeDepartmentModal) nextCollegeDepartmentModal.addEventListener("click", proceedToPurposePage);
 
-    const currentVisitor = getCurrentVisitor();
-
-    if (await isUserBlocked(currentVisitor)) {
-      closeCollegeDepartmentModalFunc();
-      clearCurrentVisitor();
-      showBlockedMessage("This user is blocked and cannot continue.");
-      window.location.href = "index.html";
-      return;
-    }
-
-    currentVisitor.college = collegeDepartmentSelect.value;
-    saveCurrentVisitor(currentVisitor);
-    localStorage.setItem("selectedCollegeDepartment", collegeDepartmentSelect.value);
-
-    window.location.href = "purpose.html";
-  });
-}
-
-[
-  helpModal,
-  adminModal,
-  scanModal,
-  studentNumberModal,
-  googleEmailModal,
-  collegeDepartmentModal
-].forEach((modal) => {
-  if (!modal) return;
-
-  modal.addEventListener("click", function (e) {
-    const content = modal.firstElementChild;
-    if (content && !content.contains(e.target)) {
-      closeModal(modal);
-    }
-  });
-});
-
-document.addEventListener("keydown", function (e) {
-  if (e.key === "Escape") {
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
     if (helpModal && !helpModal.classList.contains("hidden")) closeHelpModalFunc();
     if (adminModal && !adminModal.classList.contains("hidden")) closeAdminModalFunc();
     if (scanModal && !scanModal.classList.contains("hidden")) closeScanModalFunc();
