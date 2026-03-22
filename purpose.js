@@ -105,7 +105,7 @@ continueButton.addEventListener("click", async function () {
 
   if (!currentVisitor.name && !currentVisitor.idNumber && !currentVisitor.email) {
     alert("No visitor information found. Please start again from the home page.");
-    window.location.href = "home.html";
+    window.location.href = "index.html";
     return;
   }
 
@@ -127,11 +127,10 @@ continueButton.addEventListener("click", async function () {
 
     localStorage.setItem("latestVisitorLogId", createdLog.log_id);
     localStorage.setItem("selectedPurpose", selectedPurpose);
+    localStorage.setItem("currentVisitor", JSON.stringify(currentVisitor));
 
-    localStorage.removeItem("currentVisitor");
     localStorage.removeItem("studentIdentifier");
     localStorage.removeItem("studentName");
-    localStorage.removeItem("selectedCollegeDepartment");
 
     window.location.href = "welcome.html";
   } catch (error) {
