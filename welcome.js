@@ -33,12 +33,29 @@ function setCheckInTime() {
   checkinDisplay.textContent = savedCheckInTime;
 }
 
-function loadSelectedDetails() {
-  const savedCollegeDepartment = localStorage.getItem("selectedCollegeDepartment");
-  const savedPurpose = localStorage.getItem("selectedPurpose");
+function getCurrentVisitor() {
+  try {
+    return JSON.parse(localStorage.getItem("currentVisitor")) || {};
+  } catch (error) {
+    return {};
+  }
+}
 
-  collegeDisplay.textContent = savedCollegeDepartment || "Not provided";
-  purposeDisplay.textContent = savedPurpose || "Not provided";
+function loadSelectedDetails() {
+  const currentVisitor = getCurrentVisitor();
+
+  const savedCollegeDepartment =
+    currentVisitor.college ||
+    localStorage.getItem("selectedCollegeDepartment") ||
+    "Not provided";
+
+  const savedPurpose =
+    currentVisitor.purpose ||
+    localStorage.getItem("selectedPurpose") ||
+    "Not provided";
+
+  collegeDisplay.textContent = savedCollegeDepartment;
+  purposeDisplay.textContent = savedPurpose;
 }
 
 doneButton.addEventListener("click", function () {
